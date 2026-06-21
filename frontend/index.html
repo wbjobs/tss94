@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>微分方程拟合工具</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <header class="header">
+        <h1>🔬 微分方程拟合工具</h1>
+        <p class="subtitle">上传时间序列数据，自动匹配最优微分方程模型</p>
+    </header>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="fit">数据拟合</button>
+            <button class="tab-btn" data-tab="history">历史任务</button>
+        </div>
+
+        <div id="fit-tab" class="tab-content active">
+            <div class="upload-section">
+                <div class="upload-box" id="uploadBox">
+                    <div class="upload-icon">📊</div>
+                    <h3>上传CSV数据文件</h3>
+                    <p>第一列为时间，第二列为数据值</p>
+                    <p class="hint">拖拽文件到此处或点击选择文件</p>
+                    <input type="file" id="fileInput" accept=".csv" hidden>
+                    <button class="btn btn-primary" id="selectFileBtn">选择文件</button>
+                </div>
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <span id="fileName"></span>
+                    <button class="btn btn-secondary" id="startFitBtn">开始拟合</button>
+                    <button class="btn btn-outline" id="clearFileBtn">清除</button>
+                </div>
+            </div>
+
+            <div class="status-section" id="statusSection" style="display: none;">
+                <div class="status-card">
+                    <div class="spinner" id="spinner"></div>
+                    <div class="status-text">
+                        <h3 id="statusTitle">正在拟合...</h3>
+                        <p id="statusDesc">正在尝试各种微分方程形式，请稍候</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="results-section" id="resultsSection" style="display: none;">
+                <div class="best-result-card">
+                    <div class="best-badge">🏆 最佳匹配</div>
+                    <h2 id="bestEquationName"></h2>
+                    <div class="equation-display" id="bestEquationLatex"></div>
+                    <div class="metrics-row">
+                        <div class="metric">
+                            <span class="metric-label">R²</span>
+                            <span class="metric-value" id="bestR2"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">置信度</span>
+                            <span class="metric-value" id="bestConfidence"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">RMSE</span>
+                            <span class="metric-value" id="bestRmse"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <h3>拟合曲线对比</h3>
+                    <canvas id="fitChart"></canvas>
+                </div>
+
+                <div class="all-models-card">
+                    <h3>所有模型排名</h3>
+                    <div id="modelsList"></div>
+                </div>
+
+                <div class="model-detail-card" id="modelDetailCard" style="display: none;">
+                    <h3 id="detailModelName"></h3>
+                    <div class="equation-display" id="detailEquationLatex"></div>
+                    <div class="params-grid" id="detailParams"></div>
+                    <div class="metrics-row">
+                        <div class="metric">
+                            <span class="metric-label">R²</span>
+                            <span class="metric-value" id="detailR2"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">AIC</span>
+                            <span class="metric-value" id="detailAic"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">BIC</span>
+                            <span class="metric-value" id="detailBic"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">置信度</span>
+                            <span class="metric-value" id="detailConfidence"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="history-tab" class="tab-content">
+            <div class="history-header">
+                <h2>历史任务</h2>
+                <button class="btn btn-secondary" id="refreshHistoryBtn">🔄 刷新</button>
+            </div>
+            <div class="history-list" id="historyList">
+                <p class="empty-hint">暂无历史任务</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
