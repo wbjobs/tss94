@@ -1,6 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Dict, Optional
 import os
 import sys
 
@@ -8,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from .database import init_db
 from .task_manager import task_manager
+from .fitting import get_all_templates_info, simulate_ode, compare_with_original
 
 
 app = FastAPI(title="微分方程拟合工具", description="自动拟合实验数据的微分方程")
@@ -21,6 +24,44 @@ app.add_middleware(
 )
 
 init_db()
+
+
+class SimulateRequest(BaseModel):
+    equation_name: str
+    params: Dict[str, float]
+    x0: List[float]
+    time_points: List[float]
+    original_data: Optional[List[float]] = None
+    generate_latex: bool = True
+
+
+@app.get("/api/equations")
+async def list_equations():
+    return {"equations": get_all_templates_info(), "count": len(get_all_templates_info())}
+
+
+@app.post("/api/simulate")
+async def simulate(request: SimulateRequest):
+    result = simulate_ode(
+        equation_name=request.equation_name,
+        params=request.params,
+        x0=request.x0,
+        time_points=request.time_points,
+        generate_latex=request.generate_latex
+    )
+    
+    if not result.get("success"):
+        return result
+    
+    if request.original_data is not None:
+        comparison = compare_with_original(
+            result.get("simulated_values", []),
+            request.original_data
+        )
+        if comparison.get("success"):
+            result["comparison"] = comparison
+    
+    return result
 
 
 @app.post("/api/fit")

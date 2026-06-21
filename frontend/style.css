@@ -680,3 +680,219 @@ body {
     margin-top: 2px;
 }
 
+.whatif-card {
+    background: linear-gradient(135deg, #faf5ff 0%, #fff5f7 100%);
+    border-radius: 16px;
+    padding: 25px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    border: 2px solid #d6bcfa;
+}
+
+.whatif-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.whatif-header h3 {
+    font-size: 1.15rem;
+    color: #6b46c1;
+    margin: 0;
+}
+
+.whatif-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.whatif-hint {
+    color: #718096;
+    font-size: 0.9rem;
+    margin-bottom: 15px;
+}
+
+.whatif-equation {
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    text-align: center;
+    border: 1px solid #e9d8fd;
+}
+
+.whatif-label {
+    font-weight: 600;
+    color: #553c9a;
+    margin-right: 10px;
+}
+
+.sliders-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.slider-group {
+    background: white;
+    padding: 15px 18px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+
+.slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.slider-name {
+    font-weight: 600;
+    color: #2d3748;
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+}
+
+.slider-value-input {
+    width: 100px;
+    padding: 5px 10px;
+    border: 1px solid #cbd5e0;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    text-align: right;
+    color: #6b46c1;
+    font-weight: 600;
+}
+
+.slider-value-input:focus {
+    outline: none;
+    border-color: #9f7aea;
+    box-shadow: 0 0 0 3px rgba(159, 122, 234, 0.1);
+}
+
+.slider-track {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.slider-range {
+    flex: 1;
+    -webkit-appearance: none;
+    appearance: none;
+    height: 6px;
+    border-radius: 3px;
+    background: linear-gradient(90deg, #9f7aea, #ed64a6);
+    outline: none;
+    cursor: pointer;
+}
+
+.slider-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #805ad5;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transition: transform 0.15s;
+}
+
+.slider-range::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+}
+
+.slider-range::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #805ad5;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+.slider-bounds {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 5px;
+    font-size: 0.75rem;
+    color: #a0aec0;
+    font-family: 'Courier New', monospace;
+}
+
+.whatif-status {
+    margin-top: 15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.whatif-status.loading {
+    background: #bee3f8;
+    color: #2c5282;
+}
+
+.whatif-status.error {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+.whatif-status.success {
+    background: #c6f6d5;
+    color: #22543d;
+}
+
+.whatif-comparison {
+    margin-top: 20px;
+    padding: 18px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e9d8fd;
+}
+
+.comparison-title {
+    font-weight: 600;
+    color: #553c9a;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+}
+
+.delta-positive {
+    color: #38a169 !important;
+}
+
+.delta-negative {
+    color: #e53e3e !important;
+}
+
+.initial-conditions-section {
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 1px dashed #cbd5e0;
+}
+
+.section-title {
+    font-weight: 600;
+    color: #4a5568;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.x0-tag {
+    display: inline-block;
+    background: #805ad5;
+    color: white;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+

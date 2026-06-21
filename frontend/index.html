@@ -154,6 +154,48 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="whatif-card" id="whatifCard" style="display: none;">
+                    <div class="whatif-header">
+                        <h3>🔬 What-If 分析</h3>
+                        <div class="whatif-actions">
+                            <button class="btn btn-outline" id="resetParamsBtn">↺ 重置参数</button>
+                            <button class="btn btn-primary" id="applyParamsBtn">▶ 重新模拟</button>
+                        </div>
+                    </div>
+                    <p class="whatif-hint">拖动下方滑条调整参数，实时观察曲线变化</p>
+                    
+                    <div class="whatif-equation">
+                        <span class="whatif-label">当前方程：</span>
+                        <span id="whatifEquationLatex"></span>
+                    </div>
+                    
+                    <div class="sliders-container" id="slidersContainer"></div>
+                    
+                    <div class="whatif-status" id="whatifStatus" style="display: none;"></div>
+                    
+                    <div class="whatif-comparison" id="whatifComparison" style="display: none;">
+                        <div class="comparison-title">📊 与原拟合对比</div>
+                        <div class="metrics-row">
+                            <div class="metric">
+                                <span class="metric-label">新R²</span>
+                                <span class="metric-value" id="newR2">-</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">ΔR²</span>
+                                <span class="metric-value" id="deltaR2">-</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">新RMSE</span>
+                                <span class="metric-value" id="newRmse">-</span>
+                            </div>
+                            <div class="metric">
+                                <span class="metric-label">数值稳定</span>
+                                <span class="metric-value" id="newStable">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 

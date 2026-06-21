@@ -5,6 +5,19 @@ let currentResults = null;
 let selectedModelIndex = 0;
 let chart = null;
 let pollInterval = null;
+let whatifState = {
+    originalParams: {},
+    originalX0: [],
+    currentParams: {},
+    currentX0: [],
+    simulatedValues: null,
+    equationName: null,
+    debounceTimer: null,
+    paramBounds: {},
+    originalFitted: null,
+    originalR2: 0,
+    originalRmse: 0
+};
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -359,10 +372,12 @@ function renderModelDetail(index) {
         `;
         paramsGrid.appendChild(paramItem);
     });
+
+    initWhatIfAnalysis(result);
 }
 
 
-function renderChart(results, selectedIndex) {
+function renderChart(results, selectedIndex, extraDatasets = null) {
     const ctx = document.getElementById('fitChart').getContext('2d');
     const result = results[selectedIndex];
 
@@ -400,7 +415,7 @@ function renderChart(results, selectedIndex) {
     }
 
     datasets.push({
-        label: '拟合曲线',
+        label: '原拟合曲线',
         data: result.fitted_curve,
         borderColor: '#48bb78',
         backgroundColor: 'rgba(72, 187, 120, 0.15)',
@@ -409,6 +424,10 @@ function renderChart(results, selectedIndex) {
         borderWidth: 3,
         fill: false
     });
+
+    if (extraDatasets && extraDatasets.length > 0) {
+        extraDatasets.forEach(ds => datasets.push(ds));
+    }
 
     chart = new Chart(ctx, {
         type: 'line',
@@ -564,4 +583,266 @@ function viewHistoryTask(taskId) {
 
     currentTaskId = taskId;
     loadResults(taskId);
+}
+
+
+function initWhatIfAnalysis(result) {
+    whatifState.equationName = result.equation_name;
+    whatifState.originalParams = JSON.parse(JSON.stringify(result.params));
+    whatifState.currentParams = JSON.parse(JSON.stringify(result.params));
+    whatifState.originalX0 = [...result.x0];
+    whatifState.currentX0 = [...result.x0];
+    whatifState.originalFitted = [...result.fitted_curve];
+    whatifState.originalR2 = result.r_squared;
+    whatifState.originalRmse = result.rmse;
+    whatifState.simulatedValues = null;
+
+    const paramBounds = estimateParamBounds(result);
+    whatifState.paramBounds = paramBounds;
+
+    const card = document.getElementById('whatifCard');
+    card.style.display = 'block';
+
+    renderLatex('whatifEquationLatex', result.latex_equation);
+
+    buildSliders(result, paramBounds);
+
+    document.getElementById('whatifStatus').style.display = 'none';
+    document.getElementById('whatifComparison').style.display = 'none';
+
+    document.getElementById('resetParamsBtn').onclick = () => resetWhatIfParams(result);
+    document.getElementById('applyParamsBtn').onclick = () => runWhatIfSimulation();
+}
+
+
+function estimateParamBounds(result) {
+    const bounds = {};
+    const defaultRanges = {
+        'a': [-10, 10], 'b': [-100, 100], 'c': [-100, 100],
+        'r': [-2, 2], 'K': [0.1, 1000], 'k': [-100, 100],
+        'omega': [0.01, 20], 'zeta': [0, 2], 'tau': [0.01, 50]
+    };
+
+    for (const [name, val] of Object.entries(result.params)) {
+        let [minDef, maxDef] = defaultRanges[name] || [-100, 100];
+        
+        const absVal = Math.abs(val);
+        if (absVal > 0) {
+            const range = Math.max(absVal * 3, 0.1);
+            let minV = val - range;
+            let maxV = val + range;
+            
+            if (['K', 'omega', 'tau', 'zeta', 'r'].includes(name)) {
+                minV = Math.max(minV, minDef);
+                maxV = Math.min(maxV, maxDef);
+            }
+            if (name === 'zeta') {
+                minV = Math.max(0, minV);
+                maxV = Math.min(2, maxV);
+            }
+            bounds[name] = [Math.min(minV, val), Math.max(maxV, val)];
+        } else {
+            bounds[name] = [minDef, maxDef];
+        }
+    }
+    return bounds;
+}
+
+
+function buildSliders(result, paramBounds) {
+    const container = document.getElementById('slidersContainer');
+    container.innerHTML = '';
+
+    for (const [name, val] of Object.entries(result.params)) {
+        const [minV, maxV] = paramBounds[name] || [-100, 100];
+        const slider = createSliderGroup(name, val, minV, maxV, false);
+        container.appendChild(slider);
+    }
+
+    const x0Section = document.createElement('div');
+    x0Section.className = 'initial-conditions-section';
+    const x0Title = document.createElement('div');
+    x0Title.className = 'section-title';
+    x0Title.textContent = '初始条件 (可调整)';
+    x0Section.appendChild(x0Title);
+
+    result.x0.forEach((val, i) => {
+        const label = result.order === 2 ? (i === 0 ? 'x₀' : 'dx₀/dt') : 'x₀';
+        const paramName = '_x0_' + i;
+        const dataRange = Math.max(Math.abs(val) * 5, 1);
+        const minV = val - dataRange;
+        const maxV = val + dataRange;
+        const slider = createSliderGroup(label, val, minV, maxV, true, paramName);
+        x0Section.appendChild(slider);
+    });
+    container.appendChild(x0Section);
+}
+
+
+function createSliderGroup(name, initialValue, minV, maxV, isX0, paramKey) {
+    const group = document.createElement('div');
+    group.className = 'slider-group';
+
+    const step = Math.max((maxV - minV) / 1000, 0.0001);
+
+    group.innerHTML = `
+        <div class="slider-header">
+            <span class="slider-name">${name}${isX0 ? '<span class="x0-tag">初值</span>' : ''}</span>
+            <input type="number" class="slider-value-input" step="${step.toExponential(2)}" value="${parseFloat(initialValue.toFixed(6))}">
+        </div>
+        <div class="slider-track">
+            <input type="range" class="slider-range" min="${minV}" max="${maxV}" step="${step}" value="${initialValue}">
+        </div>
+        <div class="slider-bounds">
+            <span>${parseFloat(minV.toFixed(4))}</span>
+            <span>${parseFloat(maxV.toFixed(4))}</span>
+        </div>
+    `;
+
+    const rangeInput = group.querySelector('.slider-range');
+    const numberInput = group.querySelector('.slider-value-input');
+    const key = isX0 ? paramKey : name;
+
+    rangeInput.addEventListener('input', (e) => {
+        const v = parseFloat(e.target.value);
+        numberInput.value = v.toFixed(6);
+        updateWhatIfParam(key, v, isX0);
+    });
+
+    numberInput.addEventListener('change', (e) => {
+        let v = parseFloat(e.target.value);
+        if (isNaN(v)) v = initialValue;
+        v = Math.max(minV, Math.min(maxV, v));
+        numberInput.value = v.toFixed(6);
+        rangeInput.value = v;
+        updateWhatIfParam(key, v, isX0);
+    });
+
+    return group;
+}
+
+
+function updateWhatIfParam(key, value, isX0) {
+    if (isX0) {
+        const idx = parseInt(key.split('_')[2]);
+        whatifState.currentX0[idx] = value;
+    } else {
+        whatifState.currentParams[key] = value;
+    }
+
+    if (whatifState.debounceTimer) {
+        clearTimeout(whatifState.debounceTimer);
+    }
+    whatifState.debounceTimer = setTimeout(() => {
+        runWhatIfSimulation();
+    }, 300);
+}
+
+
+function resetWhatIfParams(result) {
+    whatifState.currentParams = JSON.parse(JSON.stringify(whatifState.originalParams));
+    whatifState.currentX0 = [...whatifState.originalX0];
+    whatifState.simulatedValues = null;
+
+    const container = document.getElementById('slidersContainer');
+    container.innerHTML = '';
+    const paramBounds = whatifState.paramBounds;
+    buildSliders(result, paramBounds);
+
+    document.getElementById('whatifStatus').style.display = 'none';
+    document.getElementById('whatifComparison').style.display = 'none';
+
+    renderChart(currentResults, selectedModelIndex, null);
+}
+
+
+async function runWhatIfSimulation() {
+    if (!currentResults) return;
+
+    const result = currentResults[selectedModelIndex];
+    const statusEl = document.getElementById('whatifStatus');
+    statusEl.style.display = 'block';
+    statusEl.className = 'whatif-status loading';
+    statusEl.textContent = '⏳ 正在模拟...';
+
+    try {
+        const response = await fetch(`${API_BASE}/simulate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                equation_name: whatifState.equationName,
+                params: whatifState.currentParams,
+                x0: whatifState.currentX0,
+                time_points: result.time_points,
+                original_data: result.smoothed_data || result.original_data,
+                generate_latex: true
+            })
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            statusEl.className = 'whatif-status error';
+            statusEl.textContent = '❌ ' + (data.error || '模拟失败');
+            return;
+        }
+
+        whatifState.simulatedValues = data.simulated_values;
+
+        if (data.latex_equation) {
+            renderLatex('whatifEquationLatex', data.latex_equation);
+        }
+
+        const compEl = document.getElementById('whatifComparison');
+        compEl.style.display = 'block';
+
+        let newR2 = '-', deltaR2 = '-', newRmse = '-';
+        if (data.comparison && data.comparison.success) {
+            newR2 = data.comparison.r_squared.toFixed(4);
+            const delta = data.comparison.r_squared - whatifState.originalR2;
+            deltaR2 = (delta >= 0 ? '+' : '') + delta.toFixed(4);
+            newRmse = data.comparison.rmse.toFixed(4);
+
+            const newR2El = document.getElementById('newR2');
+            const deltaR2El = document.getElementById('deltaR2');
+            newR2El.textContent = newR2;
+            deltaR2El.textContent = deltaR2;
+            deltaR2El.className = 'metric-value ' + (delta >= 0 ? 'delta-positive' : 'delta-negative');
+            document.getElementById('newRmse').textContent = newRmse;
+        }
+
+        const stableEl = document.getElementById('newStable');
+        if (data.is_stable) {
+            stableEl.textContent = '✓ 稳定';
+            stableEl.className = 'metric-value delta-positive';
+        } else {
+            stableEl.textContent = '⚠️ 不稳定';
+            stableEl.className = 'metric-value delta-negative';
+        }
+
+        if (data.is_stable) {
+            statusEl.className = 'whatif-status success';
+            statusEl.textContent = '✅ 模拟完成，曲线已更新';
+        } else {
+            statusEl.className = 'whatif-status error';
+            statusEl.textContent = '⚠️ ' + (data.stability_info?.message || '数值不稳定');
+        }
+
+        const whatifDataset = [{
+            label: '调整后预测',
+            data: data.simulated_values,
+            borderColor: '#ed8936',
+            backgroundColor: 'rgba(237, 137, 54, 0.15)',
+            pointRadius: 0,
+            tension: 0.3,
+            borderWidth: 3,
+            fill: false,
+            borderDash: [8, 4]
+        }];
+        renderChart(currentResults, selectedModelIndex, whatifDataset);
+
+    } catch (error) {
+        statusEl.className = 'whatif-status error';
+        statusEl.textContent = '❌ 请求失败: ' + error.message;
+    }
 }
