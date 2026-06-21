@@ -49,6 +49,29 @@
             </div>
 
             <div class="results-section" id="resultsSection" style="display: none;">
+                <div class="data-quality-card">
+                    <h3>📈 数据质量分析</h3>
+                    <div class="metrics-row">
+                        <div class="metric">
+                            <span class="metric-label">噪声水平</span>
+                            <span class="metric-value" id="noiseLevel"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">信噪比</span>
+                            <span class="metric-value" id="snrRatio"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">平滑方法</span>
+                            <span class="metric-value" id="smoothMethod"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">数据点数</span>
+                            <span class="metric-value" id="dataPoints"></span>
+                        </div>
+                    </div>
+                    <div class="noise-indicator" id="noiseIndicator"></div>
+                </div>
+
                 <div class="best-result-card">
                     <div class="best-badge">🏆 最佳匹配</div>
                     <h2 id="bestEquationName"></h2>
@@ -59,28 +82,34 @@
                             <span class="metric-value" id="bestR2"></span>
                         </div>
                         <div class="metric">
+                            <span class="metric-label">调整R²</span>
+                            <span class="metric-value" id="bestAdjR2"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">综合评分</span>
+                            <span class="metric-value" id="bestComposite"></span>
+                        </div>
+                        <div class="metric">
                             <span class="metric-label">置信度</span>
                             <span class="metric-value" id="bestConfidence"></span>
                         </div>
-                        <div class="metric">
-                            <span class="metric-label">RMSE</span>
-                            <span class="metric-value" id="bestRmse"></span>
-                        </div>
                     </div>
+                    <div class="penalty-info" id="penaltyInfo"></div>
                 </div>
 
                 <div class="chart-card">
-                    <h3>拟合曲线对比</h3>
+                    <h3>拟合曲线对比（原始数据 + 平滑数据 + 拟合曲线）</h3>
                     <canvas id="fitChart"></canvas>
                 </div>
 
                 <div class="all-models-card">
-                    <h3>所有模型排名</h3>
+                    <h3>所有模型排名（按综合评分排序）</h3>
                     <div id="modelsList"></div>
                 </div>
 
                 <div class="model-detail-card" id="modelDetailCard" style="display: none;">
                     <h3 id="detailModelName"></h3>
+                    <div class="stability-badge" id="stabilityBadge"></div>
                     <div class="equation-display" id="detailEquationLatex"></div>
                     <div class="params-grid" id="detailParams"></div>
                     <div class="metrics-row">
@@ -89,8 +118,16 @@
                             <span class="metric-value" id="detailR2"></span>
                         </div>
                         <div class="metric">
-                            <span class="metric-label">AIC</span>
-                            <span class="metric-value" id="detailAic"></span>
+                            <span class="metric-label">调整R²</span>
+                            <span class="metric-value" id="detailAdjR2"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">NRMSE</span>
+                            <span class="metric-value" id="detailNrmse"></span>
+                        </div>
+                        <div class="metric">
+                            <span class="metric-label">AICc</span>
+                            <span class="metric-value" id="detailAicc"></span>
                         </div>
                         <div class="metric">
                             <span class="metric-label">BIC</span>
@@ -99,6 +136,21 @@
                         <div class="metric">
                             <span class="metric-label">置信度</span>
                             <span class="metric-value" id="detailConfidence"></span>
+                        </div>
+                    </div>
+                    <div class="penalty-breakdown">
+                        <h4>惩罚项明细</h4>
+                        <div class="penalty-item">
+                            <span>复杂度惩罚</span>
+                            <span id="penaltyComplexity"></span>
+                        </div>
+                        <div class="penalty-item">
+                            <span>噪声过拟合惩罚</span>
+                            <span id="penaltyNoise"></span>
+                        </div>
+                        <div class="penalty-item">
+                            <span>稳定性惩罚</span>
+                            <span id="penaltyStability"></span>
                         </div>
                     </div>
                 </div>

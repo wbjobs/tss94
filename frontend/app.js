@@ -109,6 +109,7 @@ async function startFitting() {
     document.getElementById('resultsSection').style.display = 'none';
     document.getElementById('statusTitle').textContent = '正在上传数据...';
     document.getElementById('statusDesc').textContent = '正在提交拟合任务';
+    document.getElementById('spinner').style.display = 'block';
 
     try {
         const formData = new FormData();
@@ -138,7 +139,7 @@ function startPolling(taskId) {
     if (pollInterval) clearInterval(pollInterval);
     
     document.getElementById('statusTitle').textContent = '正在拟合...';
-    document.getElementById('statusDesc').textContent = '正在尝试各种微分方程形式，请稍候';
+    document.getElementById('statusDesc').textContent = '正在尝试各种微分方程形式，请稍候（高噪声数据会自动平滑处理）';
 
     pollInterval = setInterval(async () => {
         try {
@@ -153,6 +154,8 @@ function startPolling(taskId) {
                 clearInterval(pollInterval);
                 pollInterval = null;
                 showError(data.error_message || '拟合失败');
+            } else if (data.status === 'processing') {
+                document.getElementById('statusDesc').textContent = '正在优化参数，请耐心等待...';
             }
         } catch (error) {
             console.error('Polling error:', error);
@@ -187,15 +190,75 @@ function displayResults(data) {
 
     const bestResult = data.results[0];
 
+    displayDataQuality(bestResult);
+
     document.getElementById('bestEquationName').textContent = bestResult.display_name;
     renderLatex('bestEquationLatex', bestResult.latex_equation);
     document.getElementById('bestR2').textContent = bestResult.r_squared.toFixed(4);
+    document.getElementById('bestAdjR2').textContent = bestResult.adjusted_r_squared.toFixed(4);
+    document.getElementById('bestComposite').textContent = bestResult.composite_score.toFixed(4);
     document.getElementById('bestConfidence').textContent = (bestResult.confidence_score * 100).toFixed(1) + '%';
-    document.getElementById('bestRmse').textContent = bestResult.rmse.toFixed(4);
+
+    let penaltyHtml = '';
+    const penalties = [];
+    if (bestResult.complexity_penalty > 0.01) {
+        penalties.push(`复杂度惩罚: ${(bestResult.complexity_penalty * 100).toFixed(1)}%`);
+    }
+    if (bestResult.noise_penalty > 0.01) {
+        penalties.push(`噪声惩罚: ${(bestResult.noise_penalty * 100).toFixed(1)}%`);
+    }
+    if (bestResult.stability_penalty > 0.01) {
+        penalties.push(`稳定性惩罚: ${(bestResult.stability_penalty * 100).toFixed(1)}%`);
+    }
+    if (!bestResult.is_stable) {
+        penalties.push(`⚠️ 数值不稳定: ${bestResult.stability_message || '未知原因'}`);
+    }
+    if (penalties.length > 0) {
+        penaltyHtml = '💡 ' + penalties.join(' | ');
+    }
+    document.getElementById('penaltyInfo').innerHTML = penaltyHtml;
 
     renderModelsList(data.results);
     renderModelDetail(0);
     renderChart(data.results, 0);
+}
+
+
+function displayDataQuality(result) {
+    const noiseLevel = result.noise_level;
+    const snr = result.signal_to_noise;
+    const smoothMethod = result.smooth_method;
+    const dataPoints = result.time_points.length;
+
+    document.getElementById('noiseLevel').textContent = (noiseLevel * 100).toFixed(2) + '%';
+    document.getElementById('snrRatio').textContent = snr.toFixed(2);
+    
+    const smoothNames = {
+        'none': '无（原始数据）',
+        'savgol_light': 'Savitzky-Golay 轻度平滑',
+        'savgol_medium': 'Savitzky-Golay 中度平滑',
+        'savgol_heavy': 'Savitzky-Golay + MA 强平滑'
+    };
+    document.getElementById('smoothMethod').textContent = smoothNames[smoothMethod] || smoothMethod;
+    document.getElementById('dataPoints').textContent = dataPoints;
+
+    const indicator = document.getElementById('noiseIndicator');
+    let noiseClass, noiseText;
+    if (noiseLevel < 0.02) {
+        noiseClass = 'noise-low';
+        noiseText = '✅ 噪声水平很低，拟合结果可信度高';
+    } else if (noiseLevel < 0.08) {
+        noiseClass = 'noise-medium';
+        noiseText = '⚠️ 噪声水平中等，结果仅供参考';
+    } else if (noiseLevel < 0.2) {
+        noiseClass = 'noise-high';
+        noiseText = '⚠️ 噪声水平较高，建议先对数据进行预处理';
+    } else {
+        noiseClass = 'noise-very-high';
+        noiseText = '❌ 噪声水平非常高，拟合结果可能不可靠';
+    }
+    indicator.className = 'noise-indicator ' + noiseClass;
+    indicator.textContent = noiseText;
 }
 
 
@@ -207,15 +270,18 @@ function renderModelsList(results) {
         const item = document.createElement('div');
         item.className = `model-item ${index === 0 ? 'best' : ''} ${index === selectedModelIndex ? 'selected' : ''}`;
         
+        let stabilityBadge = result.is_stable ? '' : '<span style="color:#e53e3e;font-size:0.8rem;"> ⚠️</span>';
+
         item.innerHTML = `
             <div class="model-rank">${index + 1}</div>
             <div class="model-info">
-                <div class="model-name">${result.display_name}</div>
-                <div class="model-desc">${result.description || ''}</div>
+                <div class="model-name">${result.display_name}${stabilityBadge}</div>
+                <div class="model-desc">${result.description || ''} · ${result.order}阶</div>
             </div>
             <div class="model-metrics">
                 <div class="r2">R²: ${result.r_squared.toFixed(4)}</div>
                 <div class="confidence">置信度: ${(result.confidence_score * 100).toFixed(1)}%</div>
+                <div class="composite-score">综合: ${result.composite_score.toFixed(4)}</div>
             </div>
         `;
 
@@ -237,15 +303,36 @@ function renderModelDetail(index) {
     
     card.style.display = 'block';
     document.getElementById('detailModelName').textContent = result.display_name;
+    
+    const stabilityBadge = document.getElementById('stabilityBadge');
+    if (result.is_stable) {
+        stabilityBadge.className = 'stability-badge stability-stable';
+        stabilityBadge.textContent = '✓ 数值稳定';
+    } else {
+        stabilityBadge.className = 'stability-badge stability-unstable';
+        stabilityBadge.textContent = '⚠️ 数值不稳定: ' + (result.stability_message || '');
+    }
+    
     renderLatex('detailEquationLatex', result.latex_equation);
     
     document.getElementById('detailR2').textContent = result.r_squared.toFixed(4);
-    document.getElementById('detailAic').textContent = result.aic.toFixed(2);
+    document.getElementById('detailAdjR2').textContent = result.adjusted_r_squared.toFixed(4);
+    document.getElementById('detailNrmse').textContent = (result.normalized_rmse * 100).toFixed(2) + '%';
+    document.getElementById('detailAicc').textContent = result.aic_c.toFixed(2);
     document.getElementById('detailBic').textContent = result.bic.toFixed(2);
     document.getElementById('detailConfidence').textContent = (result.confidence_score * 100).toFixed(1) + '%';
 
+    document.getElementById('penaltyComplexity').textContent = (result.complexity_penalty * 100).toFixed(2) + '%';
+    document.getElementById('penaltyNoise').textContent = (result.noise_penalty * 100).toFixed(2) + '%';
+    document.getElementById('penaltyStability').textContent = (result.stability_penalty * 100).toFixed(2) + '%';
+
     const paramsGrid = document.getElementById('detailParams');
     paramsGrid.innerHTML = '';
+
+    const paramsTitle = document.createElement('div');
+    paramsTitle.style.cssText = 'grid-column: 1/-1; font-weight: 600; color: #2d3748; margin-bottom: 5px;';
+    paramsTitle.textContent = '模型参数';
+    paramsGrid.appendChild(paramsTitle);
 
     for (const [name, value] of Object.entries(result.params)) {
         const paramItem = document.createElement('div');
@@ -258,7 +345,7 @@ function renderModelDetail(index) {
     }
 
     const x0Title = document.createElement('div');
-    x0Title.style.cssText = 'grid-column: 1/-1; font-weight: 500; color: #718096; margin-top: 5px;';
+    x0Title.style.cssText = 'grid-column: 1/-1; font-weight: 600; color: #2d3748; margin-top: 10px; margin-bottom: 5px;';
     x0Title.textContent = '初始条件';
     paramsGrid.appendChild(x0Title);
 
@@ -283,33 +370,51 @@ function renderChart(results, selectedIndex) {
         chart.destroy();
     }
 
+    const datasets = [];
+
+    datasets.push({
+        label: '原始数据',
+        data: result.original_data,
+        borderColor: '#cbd5e0',
+        backgroundColor: 'rgba(203, 213, 224, 0.1)',
+        pointRadius: 3,
+        pointHoverRadius: 5,
+        tension: 0,
+        borderWidth: 1,
+        fill: false,
+        pointStyle: 'circle'
+    });
+
+    if (result.smoothed_data && result.smooth_method !== 'none') {
+        datasets.push({
+            label: '平滑后数据',
+            data: result.smoothed_data,
+            borderColor: '#667eea',
+            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+            pointRadius: 0,
+            tension: 0.3,
+            borderWidth: 2,
+            fill: false,
+            borderDash: []
+        });
+    }
+
+    datasets.push({
+        label: '拟合曲线',
+        data: result.fitted_curve,
+        borderColor: '#48bb78',
+        backgroundColor: 'rgba(72, 187, 120, 0.15)',
+        pointRadius: 0,
+        tension: 0.3,
+        borderWidth: 3,
+        fill: false
+    });
+
     chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: result.time_points,
-            datasets: [
-                {
-                    label: '原始数据',
-                    data: result.original_data,
-                    borderColor: '#667eea',
-                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                    pointRadius: 4,
-                    pointHoverRadius: 6,
-                    tension: 0,
-                    borderWidth: 2,
-                    fill: false
-                },
-                {
-                    label: '拟合曲线',
-                    data: result.fitted_curve,
-                    borderColor: '#48bb78',
-                    backgroundColor: 'rgba(72, 187, 120, 0.1)',
-                    pointRadius: 0,
-                    tension: 0.3,
-                    borderWidth: 3,
-                    fill: false
-                }
-            ]
+            datasets: datasets
         },
         options: {
             responsive: true,
@@ -357,7 +462,7 @@ function renderChart(results, selectedIndex) {
     });
 
     const canvas = document.getElementById('fitChart');
-    canvas.style.height = '350px';
+    canvas.style.height = '380px';
 }
 
 
@@ -416,7 +521,7 @@ async function loadHistory() {
                 detailHtml = `
                     <div class="history-detail">
                         <div class="history-equation">${task.best_equation}</div>
-                        <div class="history-r2">R²: ${task.best_r_squared ? task.best_r_squared.toFixed(4) : 'N/A'}</div>
+                        <div class="history-r2">R²: ${task.best_r_squared ? task.best_r_squared.toFixed(4) : 'N/A'} · 置信度: ${task.confidence_score ? (task.confidence_score * 100).toFixed(1) + '%' : 'N/A'}</div>
                     </div>
                 `;
             }
